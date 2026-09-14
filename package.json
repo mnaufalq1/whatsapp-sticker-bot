@@ -1,0 +1,30 @@
+{
+  "name": "bot-sticker-wa",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.4.1",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.4.1",
+  "type": "module",
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "pino": "^10.3.1",
+    "puppeteer": "^25.10.0",
+    "qrcode-terminal": "^0.12.0",
+    "wa-sticker-formatter": "^4.4.4",
+    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#main"
+  }
+}

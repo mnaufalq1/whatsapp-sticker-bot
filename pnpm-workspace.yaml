@@ -1,0 +1,6 @@
+allowBuilds:
+  '@whiskeysockets/baileys': true
+  protobufjs: true
+  puppeteer: true
+  sharp: true
+  whatsapp-web.js@https://codeload.github.com/pedroslopez/whatsapp-web.js/tar.gz/942d236a11ad68807308b058303ba5256915979c: true
