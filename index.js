@@ -78,8 +78,8 @@ async function startBot() {
                     };
                 }
 
-                // Proses pembuatan stiker jika media valid ditemukan
-                if (targetMediaMessage && (isStickerCmd || msg.message?.imageMessage || msg.message?.videoMessage)) {
+                // Proses pembuatan stiker jika media beserta command yg valid ditemukan
+                if (isStickerCmd && targetMediaMessage) {
                     console.log('Menerima request stiker...');
 
                     const buffer = await downloadMediaMessage(

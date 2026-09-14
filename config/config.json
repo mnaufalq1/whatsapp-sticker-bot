@@ -1,7 +1,7 @@
 {
     "name": "StickerBOT",
     "author": "PalxDev",
-    "prefix": "?",
+    "prefix": ".",
     "timezone": "Asia/Jakarta",
     "groups": true
 }
