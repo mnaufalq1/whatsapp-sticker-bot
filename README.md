@@ -20,6 +20,7 @@ Bot ini mampu membuat stiker langsung dari gambar/video yang dikirim atau di-rep
 
 1.  Pastikan sudah terinstall Node.js 20+ dan PNPM
 2.  Install dependensi:
+
     ```bash
     pnpm install
     ```
@@ -62,6 +63,7 @@ Untuk Command nya bisa menggunakan
 ```
 
 Dan bisa dicustom di index.js di urutan ke 62 di bagian 
+
 ```javascript
 const isStickerCmd = caption.startsWith(`${config.prefix}(disini command nya)`);
 ```
@@ -94,12 +96,14 @@ Scan QR tersebut menggunakan aplikasi WhatsApp di HP Anda.
 Kirim gambar/video ke bot atau reply pesan media dengan perintah.
 
 **Contoh 1: Mengirim gambar/video langsung**
+
 ```
 (kirim gambar/video)
 ```
 Bot akan langsung mengubahnya menjadi stiker.
 
 **Contoh 2: Reply gambar/video dengan (prefix yg ada di config.json default : !sticker)**
+
 ```
 (User lain kirim gambar)
 Anda reply gambar tersebut:
