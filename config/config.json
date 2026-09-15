@@ -3,5 +3,6 @@
     "author": "PalxDev",
     "prefix": ".",
     "timezone": "Asia/Jakarta",
-    "groups": true
+    "groups": true,
+    "devices": ["main", "mani"]
 }
