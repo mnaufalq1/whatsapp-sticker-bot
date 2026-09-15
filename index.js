@@ -1,18 +1,115 @@
 import { 
     makeWASocket, 
-    useMultiFileAuthState, 
     DisconnectReason, 
-    downloadMediaMessage 
+    downloadMediaMessage,
+    BufferJSON,
+    initAuthCreds,
+    proto
 } from '@whiskeysockets/baileys';
 import qrcode from 'qrcode-terminal';
 import { Sticker, StickerTypes } from 'wa-sticker-formatter';
 import { readFileSync } from 'fs';
 import pino from 'pino';
+import express from 'express';
+import pg from 'pg';
 
+const { Pool } = pg;
+
+// 1. Web server dummy untuk Health Check di Render
+const app = express();
+const PORT = process.env.PORT || 8000;
+
+app.get('/', (req, res) => {
+    res.send('Bot WhatsApp Baileys Status: OK');
+});
+
+app.listen(PORT, () => {
+    console.log(`Web server listening on port ${PORT}`);
+});
+
+// Load Config
 const config = JSON.parse(readFileSync('./config/config.json', 'utf-8'));
 
+// 2. Koneksi Database Postgres/Supabase
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+});
+
+// 3. Adapter Auth State khusus Postgres (Biar Sesi Permanen)
+const usePostgresAuthState = async () => {
+    // Buat tabel otomatis jika belum ada di database
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS wa_sessions (
+            id VARCHAR(255) PRIMARY KEY,
+            data TEXT NOT NULL
+        );
+    `);
+
+    const writeData = async (data, id) => {
+        const serialized = JSON.stringify(data, BufferJSON.replacer);
+        await pool.query(
+            `INSERT INTO wa_sessions (id, data) VALUES ($1, $2)
+             ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data`,
+            [id, serialized]
+        );
+    };
+
+    const readData = async (id) => {
+        try {
+            const res = await pool.query(`SELECT data FROM wa_sessions WHERE id = $1`, [id]);
+            if (res.rows.length > 0) {
+                return JSON.parse(res.rows[0].data, BufferJSON.reviver);
+            }
+        } catch (error) {
+            return null;
+        }
+        return null;
+    };
+
+    const removeData = async (id) => {
+        await pool.query(`DELETE FROM wa_sessions WHERE id = $1`, [id]);
+    };
+
+    const creds = (await readData('creds')) || initAuthCreds();
+
+    return {
+        state: {
+            creds,
+            keys: {
+                get: async (type, ids) => {
+                    const data = {};
+                    await Promise.all(
+                        ids.map(async (id) => {
+                            let value = await readData(`${type}-${id}`);
+                            if (type === 'app-state-sync-key' && value) {
+                                value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                            }
+                            data[id] = value;
+                        })
+                    );
+                    return data;
+                },
+                set: async (data) => {
+                    const tasks = [];
+                    for (const category in data) {
+                        for (const id in data[category]) {
+                            const value = data[category][id];
+                            const key = `${category}-${id}`;
+                            tasks.push(value ? writeData(value, key) : removeData(key));
+                        }
+                    }
+                    await Promise.all(tasks);
+                }
+            }
+        },
+        saveCreds: () => writeData(creds, 'creds')
+    };
+};
+
+// 4. Fungsi Utama Bot
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    const { state, saveCreds } = await usePostgresAuthState();
 
     const sock = makeWASocket({
         auth: state,
@@ -53,32 +150,28 @@ async function startBot() {
 
                 if (isGroup && !config.groups) continue;
 
-                // Ambil teks caption/pesan
                 const caption = msg.message?.imageMessage?.caption || 
                                 msg.message?.videoMessage?.caption || 
                                 msg.message?.conversation || 
                                 msg.message?.extendedTextMessage?.text || '';
 
-                const isStickerCmd = caption.startsWith(`${config.prefix}sticker`) || caption.startsWith(`${config.prefix}s`) || caption.startsWith(`${config.prefix}stiker`) || caption.startsWith(`${config.prefix}S`);
+                const isStickerCmd = caption.startsWith(`${config.prefix}sticker`) || 
+                                     caption.startsWith(`${config.prefix}s`) || 
+                                     caption.startsWith(`${config.prefix}stiker`) || 
+                                     caption.startsWith(`${config.prefix}S`);
 
-                // Cek pesan reply (quoted)
                 const quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-
-                // Tentukan objek media mana yang akan di-download
                 let targetMediaMessage = null;
 
                 if (msg.message?.imageMessage || msg.message?.videoMessage) {
-                    // 1. Kirim gambar/video langsung
                     targetMediaMessage = msg;
                 } else if (quotedMessage?.imageMessage || quotedMessage?.videoMessage) {
-                    // 2. Reply gambar/video orang lain pake !sticker
                     targetMediaMessage = {
                         key: msg.key,
                         message: quotedMessage
                     };
                 }
 
-                // Proses pembuatan stiker jika media beserta command yg valid ditemukan
                 if (isStickerCmd && targetMediaMessage) {
                     console.log('Menerima request stiker...');
 

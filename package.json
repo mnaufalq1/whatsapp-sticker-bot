@@ -21,6 +21,8 @@
   "type": "module",
   "dependencies": {
     "@whiskeysockets/baileys": "7.0.0-rc14",
+    "express": "^5.2.1",
+    "pg": "^8.23.0",
     "pino": "^10.3.1",
     "puppeteer": "^25.10.0",
     "qrcode-terminal": "^0.12.0",
