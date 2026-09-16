@@ -6,13 +6,35 @@ import {
 } from '@whiskeysockets/baileys';
 import qrcode from 'qrcode-terminal';
 import { Sticker, StickerTypes } from 'wa-sticker-formatter';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import pino from 'pino';
 
 const config = JSON.parse(readFileSync('./config/config.json', 'utf-8'));
 
-async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+// ============================================================
+// MULTI-DEVICE (TANPA DATABASE)
+// ------------------------------------------------------------
+// Sesi tiap device disimpan di folder terpisah: sessions/<nama>/
+// sehingga tiap nomor WhatsApp punya QR + kredensial sendiri.
+// Daftar device bisa diatur di config/devices.json, contoh:
+//   ["device1", "device2", "device3"]
+// Jika file tidak ada, bot tetap jalan dengan 1 device default "main".
+// CATATAN: 1 device = 1 nomor WhatsApp. Jangan pakai nomor yang sama
+// di 2 device sekaligus karena akan saling "kick".
+// ============================================================
+let devices = ['main'];
+const devicesFile = './config/devices.json';
+if (existsSync(devicesFile)) {
+    const loaded = JSON.parse(readFileSync(devicesFile, 'utf-8'));
+    if (Array.isArray(loaded) && loaded.length > 0) {
+        devices = loaded.map(String);
+    }
+}
+
+const activeSockets = new Map();
+
+async function startBot(sessionName) {
+    const { state, saveCreds } = await useMultiFileAuthState(`sessions/${sessionName}`);
 
     const sock = makeWASocket({
         auth: state,
@@ -20,24 +42,26 @@ async function startBot() {
         logger: pino({ level: 'silent' })
     });
 
+    activeSockets.set(sessionName, sock);
+
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-            console.log('\nScan QR Code di bawah ini:');
+            console.log(`\n[${sessionName}] Scan QR Code di bawah ini:`);
             qrcode.generate(qr, { small: true });
         }
 
         if (connection === 'close') {
             const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Koneksi terputus. Reconnect?', shouldReconnect);
+            console.log(`[${sessionName}] Koneksi terputus. Reconnect?`, shouldReconnect);
             if (shouldReconnect) {
-                startBot();
+                startBot(sessionName);
             }
         } else if (connection === 'open') {
-            console.log('Bot WhatsApp (Baileys) Siap!');
+            console.log(`[${sessionName}] Bot WhatsApp (Baileys) Siap!`);
         }
     });
 
@@ -109,4 +133,6 @@ async function startBot() {
     });
 }
 
-startBot();
+// Mulai semua device (1 device = 1 nomor WhatsApp)
+console.log(`Memulai bot untuk ${devices.length} device:`, devices.join(', '));
+devices.forEach((deviceName) => startBot(deviceName));

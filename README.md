@@ -75,6 +75,50 @@ const isStickerCmd = caption.startsWith(`${config.prefix}(sticker|s|stiker|S)`);
 ```
 
 
+## Multi-Device (Tanpa Database)
+
+Bot ini sudah mendukung **lebih dari 1 device** (lebih dari 1 nomor WhatsApp) **tanpa database**.
+
+### Cara Kerja
+
+Setiap device punya folder sesi sendiri di `sessions/<nama-device>/`. Tiap device akan menampilkan QR Code sendiri saat pertama kali dijalankan, lalu kredensialnya tersimpan permanen di folder tersebut.
+
+### 1. Daftarkan Device
+
+Edit file `config/devices.json`:
+
+```json
+["device1", "device2", "device3"]
+```
+
+> Jika file ini tidak ada, bot tetap berjalan normal dengan 1 device default bernama `main` (perilaku seperti versi lama).
+
+### 2. Jalankan Bot
+
+```bash
+pnpm start
+```
+
+Tiap device akan menampilkan QR-nya masing-masing dengan label `[nama-device]`:
+
+```
+Memulai bot untuk 2 device: device1, device2
+
+[device1] Scan QR Code di bawah ini:
+...
+
+[device2] Scan QR Code di bawah ini:
+...
+```
+
+Scan QR tersebut dengan nomor WhatsApp yang berbeda untuk tiap device.
+
+### ⚠️ Catatan Penting
+
+*   1 device = 1 **nomor WhatsApp yang berbeda**. Jangan gunakan nomor yang sama di dua device sekaligus — keduanya akan saling "kick" (`DisconnectReason.loggedOut`).
+*   Folder `sessions/` berisi data kredensial rahasia. Jangan dihapus jika ingin sesi tetap login, dan jangan di-commit ke repository (sudah otomatis di-`.gitignore`).
+
+
 ## Cara Menjalankan Bot
 
 ```bash
