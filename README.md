@@ -13,12 +13,13 @@ Bot ini mampu membuat stiker langsung dari gambar/video yang dikirim atau di-rep
 *   **Authentication**: Baileys Multi-File Auth
 *   **Web Driver**: Puppeteer (Secara Otomatis di-download)
 *   **Sticker Library**: `wa-sticker-formatter`
+*   **Video Processing**: `ffmpeg` (wajib terpasang di sistem, dipakai untuk stiker animasi dari video)
 *   **Logging**: Pino (Silent Mode by default)
 *   **Package Manager**: PNPM
 
 ## Instalasi
 
-1.  Pastikan sudah terinstall Node.js 20+ dan PNPM
+1.  Pastikan sudah terinstall Node.js 20+, PNPM, dan FFMPEG (cek dengan perintah `ffmpeg -version`)
 2.  Install dependensi:
 
     ```bash
@@ -34,7 +35,13 @@ Buat file `config/config.json` dengan struktur berikut:
   "prefix": "!",
   "name": "Nama Pack Stiker",
   "author": "Author Name",
-  "groups": true
+  "groups": true,
+  "sticker": {
+    "maxSizeKb": 500,
+    "videoMaxSeconds": 10,
+    "videoMaxFps": 15,
+    "imageQuality": 70
+  }
 }
 ```
 
@@ -42,6 +49,22 @@ Buat file `config/config.json` dengan struktur berikut:
 *   `name`: Nama pack stiker (author pada metadata stiker)
 *   `author`: Author pada metadata stiker
 *   `groups`: `true` jika ingin bot aktif di grup, `false` jika hanya Private Chat
+*   `sticker`: Pengaturan pembuatan stiker (opsional, ada nilai default kalau tidak diisi)
+    *   `maxSizeKb`: Batas ukuran stiker dalam KB. Menurut ketentuan WhatsApp, stiker statis maksimal 100 KB dan stiker animasi maksimal 500 KB, jadi defaultnya 500 KB. Stiker yang lebih besar dari batas ini bisa tampil rusak / gagal terkirim
+    *   `videoMaxSeconds`: Durasi maksimal video yang dipakai untuk stiker (detik, WhatsApp membatasi 10 detik)
+    *   `videoMaxFps`: Frame rate maksimal stiker animasi
+    *   `imageQuality`: Kualitas WebP untuk stiker dari gambar (0-100)
+
+## Batas Ukuran Stiker Video
+
+Stiker animasi WhatsApp dibatasi: **512 x 512 px, maksimal 500 KB, dan durasi maksimal 10 detik** (lihat [ketentuan resmi WhatsApp](https://github.com/WhatsApp/stickers)). Karena itu, sebelum dijadikan stiker, video diproses dulu oleh bot:
+
+1. Video dikonversi ke animated WebP langsung dengan `ffmpeg` (bukan lewat GIF seperti cara lama), dengan resolusi maksimal 512 px, fps dibatasi `videoMaxFps`, dan durasi dibatasi `videoMaxSeconds`.
+2. Hasilnya dicek; kalau masih lebih besar dari `maxSizeKb`, bot mengulang proses dengan pengaturan yang lebih hemat (fps, durasi, dan kualitas diturunkan) sampai stiker masuk batas ukuran.
+
+Video dibatasi supaya stiker animasi selalu lolos batas ukuran dan tidak error saat diproses. Untuk hasil terbaik, kirim video pendek (di bawah 10 detik).
+
+
 
 ## Catatan Terkait Prefix dan Perintah
 

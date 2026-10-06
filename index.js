@@ -7,7 +7,7 @@ import {
     proto
 } from '@whiskeysockets/baileys';
 import qrcode from 'qrcode-terminal';
-import { Sticker, StickerTypes } from 'wa-sticker-formatter';
+import { createStickerBuffer } from './lib/sticker.js';
 import { readFileSync } from 'fs';
 import pino from 'pino';
 import express from 'express';
@@ -32,6 +32,15 @@ app.listen(PORT, () => {
 
 // Load Config
 const config = JSON.parse(readFileSync('./config/config.json', 'utf-8'));
+
+// Pengaturan stiker (default dipakai kalau belum ada di config.json)
+const stickerConfig = {
+    maxSizeKb: 500,
+    videoMaxSeconds: 10,
+    videoMaxFps: 15,
+    imageQuality: 70,
+    ...(config.sticker || {})
+};
 
 // 2. Koneksi Database Postgres/Supabase
 if (!process.env.DATABASE_URL) {
@@ -195,17 +204,22 @@ async function startBot(deviceName = 'main') {
                         { logger: pino({ level: 'silent' }) }
                     );
 
-                    const sticker = new Sticker(buffer, {
+                    const isVideo = Boolean(targetMediaMessage.message?.videoMessage);
+
+                    // Video diproses lewat ffmpeg (batasi fps/durasi/ukuran) supaya
+                    // stiker animasi tidak melebihi batas ukuran WhatsApp.
+                    const stickerBuffer = await createStickerBuffer(buffer, {
                         pack: config.name,
                         author: config.author,
-                        type: StickerTypes.FULL,
-                        quality: 70
+                        isVideo,
+                        quality: stickerConfig.imageQuality,
+                        maxSeconds: stickerConfig.videoMaxSeconds,
+                        maxFps: stickerConfig.videoMaxFps,
+                        maxSize: stickerConfig.maxSizeKb * 1024
                     });
 
-                    const stickerBuffer = await sticker.toBuffer();
-
                     await sock.sendMessage(from, { sticker: stickerBuffer }, { quoted: msg });
-                    console.log(`[${deviceName}] Stiker berhasil dikirim!`);
+                    console.log(`[${deviceName}] Stiker berhasil dikirim! (${(stickerBuffer.length / 1024).toFixed(1)} KB)`);
                 }
 
             } catch (err) {

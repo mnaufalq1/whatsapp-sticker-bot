@@ -4,5 +4,11 @@
     "prefix": ".",
     "timezone": "Asia/Jakarta",
     "groups": true,
-    "devices": ["main", "mani"]
+    "devices": ["main"],
+    "sticker": {
+        "maxSizeKb": 500,
+        "videoMaxSeconds": 10,
+        "videoMaxFps": 15,
+        "imageQuality": 70
+    }
 }
